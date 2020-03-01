@@ -1,5 +1,5 @@
 import React from 'react';
-import { InputGroup, Button, Form, Container, Row, Col, Navbar } from 'react-bootstrap'
+import { Modal, InputGroup, Button, Form, Container, Row, Col, Navbar } from 'react-bootstrap'
 import logo from './logo.png';
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -8,7 +8,7 @@ import colormap from 'colormap';
 import axios from 'axios';
 import convert from 'color-convert';
 import floor from 'floor';
-import luminance from 'luminance'
+import luminance from 'color-luminance'
 window.axios = axios;
 
 function App () {
@@ -36,7 +36,7 @@ class ColorPicker extends React.Component {
 
     setPos (ii) {
         this.setState({ pos: ii }, () => {
-            (this.props.onChange || (() => {}))(this.state);
+            (this.props.onChange || (() => {}))(this.genCmap()[this.state.pos]);
         });
     }
 
@@ -57,7 +57,7 @@ class ColorPicker extends React.Component {
         );
     }
 
-    render () {
+    genCmap () {
         var cmap = colormap({ colormap: [
                            { index: 0, rgb: this.props.startColor },
                            { index: 1, rgb: this.props.endColor }
@@ -66,6 +66,11 @@ class ColorPicker extends React.Component {
                        });
 
         cmap = cmap.map((x, i, a) => [a[i], a[i + 1]]).slice(0,-1);
+        return cmap;
+    }
+
+    render () {
+        var cmap = this.genCmap();
 
         return (
             <InputGroup className="pb-2 d-flex justify-content-center">
@@ -111,7 +116,7 @@ class MinuteTimer extends React.Component {
             this.updateTime(0, 0);
         } else {
             this.setState({ mins, secs }, () => {
-                (this.props.onChange || (() => {}))(this.state);
+                (this.props.onChange || (() => {}))(this.state.mins * 60 + this.state.secs);
             });
         }
     }
@@ -168,7 +173,7 @@ class UIHome extends React.Component {
         this.state.tea = { level: null, color: [255,255,255] }
         this.state.jug = { connected: false }
         this.state.brew = { started: false, timeElapsed: null }
-        this.state.notifications = { minTimer: null, minColor: null }
+        this.state.notifications = { minTime: null, minColor: null }
         this.cycleAPI();
         this.cycleNotifications();
         // this.cycleTime(true)
@@ -177,7 +182,10 @@ class UIHome extends React.Component {
     apiRoot = "http://localhost:8080/api/v1"
 
     startBrew () {
-        axios.post(`${this.apiRoot}/brew`);
+        console.log("STARTING BREW")
+        axios.post(`${this.apiRoot}/brew`).then(x => {
+            console.log(x.data, x.status, x);
+        });
     }
 
     cycleTime (time) {
@@ -191,7 +199,7 @@ class UIHome extends React.Component {
 
     reloadAPI () {
         return Promise.all(
-            [ axios.get(`${this.apiRoot}/brew`).then(x => {
+            [ /*axios.get(`${this.apiRoot}/brew`).then(x => {
                 if (x.status !== 200) return;
                 // this.setState({
                 //     brew: {
@@ -200,13 +208,14 @@ class UIHome extends React.Component {
                 //     }
                 // })
               })
-            , axios.get(`${this.apiRoot}/brew/time`).then(x => {
+            , */axios.get(`${this.apiRoot}/brew/time`).then(x => {
+                console.log("BREW TIME")
                 if (x.status !== 200) return;
+                console.log("BREW TIME SUCCESS", x.data, this.state.brew.started)
                 this.setState({
                     brew: {
                         started: x.data > 0,
                         timeElapsed: x.data,
-                        ...this.state.brew
                     }
                 })
               })
@@ -236,23 +245,41 @@ class UIHome extends React.Component {
     }
 
     checkNotificationConstraints () {
-        if (this.state.notifications.timer != null
-            && this.state.timeElapsed > this.state.notifications.minTimer) {
-            return true;
+        console.log("DISABLED", this.state.notifications.disableTime, this.state.notifications.disableColor);
+        console.log("UNDISABLED", !this.state.notifications.disableTime, !this.state.notifications.disableColor);
+        console.log("TIME CONSTS", this.state.notifications.minTime, this.state.brew.timeElapsed)
+        if (this.state.notifications.minTime != null
+            && this.state.brew.timeElapsed > this.state.notifications.minTime
+            && !this.state.notifications.disableTime) {
+            return 1;
         }
 
+        console.log(luminance(this.state.tea.color), luminance(this.state.notifications.minColor));
         if (this.state.notifications.minColor != null
-            && luminance(this.state.tea.color) < luminance(this.state.notifications.minColor)) {
-            return true;
+            && luminance(this.state.tea.color) > luminance(this.state.notifications.minColor)
+            && !this.state.notifications.disableColor) {
+            return 2;
         }
 
-        return false;
+        return 0;
     }
 
     cycleNotifications () {
         var constraintMet = this.checkNotificationConstraints();
-        if (constraintMet) { this.alertUser() }
+        console.log("constraintMet", constraintMet)
+        if (constraintMet > 0) { this.alertUser(constraintMet) }
         setTimeout(this.cycleNotifications.bind(this), 1000)
+    }
+
+    alertUser (constraint) {
+        console.log("ALERTING", constraint)
+        if (this.state.lockAlert) return console.log("ALERT LOCKEDEDEDED!");
+        this.setState({ lockAlert: true });
+        if (constraint == 1) {
+            this.setState({ notifications: { disableTime: true, ...this.state.notifications } })
+        } else if (constraint == 2) {
+            this.setState({ notifications: { disableColor: true, ...this.state.notifications } })
+        }
     }
 
     cycleAPI () {
@@ -262,6 +289,18 @@ class UIHome extends React.Component {
 
     render () {
         return <Container className="ui">
+            { this.state.lockAlert !== true ? null :
+                (
+                    <Modal show={this.state.lockAlert} onHide={() => this.setState({ lockAlert: false })}>
+                        <Modal.Header>
+                            <Modal.Title>Your alarm has been triggered!</Modal.Title>
+                        </Modal.Header>
+                        <Modal.Body>
+                            One of your alarms has been set off. We can only assume this means your tea is ready. Enjoy!
+                        </Modal.Body>
+                    </Modal>
+                )
+            }
             <Navbar>
                 <Navbar.Brand href="#home">
                     <img src={logo} className="d-inline-block align-top" alt="" style={{ paddingRight: 10, height: "30px", }} />
@@ -273,10 +312,34 @@ class UIHome extends React.Component {
                     <h3>Notify Me When:</h3>
                     <Form>
                         <h5 className="text-left">Timer reaches following time...</h5>
-                        <MinuteTimer />
+                        <MinuteTimer onChange={x => {
+                                console.log("updating min time", x);
+                                this.setState({
+                                    notifications: {
+                                        minTime: x, 
+                                        minColor: this.state.notifications.minColor
+                                    }
+                                });
+                            }}/>
                         <h5 className="text-left">Tea reaches following darkness...</h5>
-                        <ColorPicker startColor={[205,133,63]} endColor={[92,64,51]} />
-                        <Button variant="primary" size="lg" onSubmit={this.startBrew.bind(this)}>
+                        <ColorPicker startColor={[205,133,63]} endColor={[92,64,51]}
+                                     onChange={x => {
+                                         var data;
+                                         if (x == undefined) {
+                                             data = undefined;
+                                         } else {
+                                             data = convert.hex.rgb(x[0].slice(1));
+                                         }
+                                         console.log("updating color picker", data)
+                                         this.setState({
+                                             notifications: {
+                                                minTime: this.state.notifications.minTime,
+                                                minColor: data
+                                             }
+                                         })
+                                     }}
+                                     />
+                        <Button variant="primary" size="lg" onClick={this.startBrew.bind(this)}>
                             Brew a Cup!
                         </Button>
                     </Form>
