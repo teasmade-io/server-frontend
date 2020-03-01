@@ -292,7 +292,7 @@ class UIHome extends React.Component {
 
     render () {
         return <Container className="ui">
-            { this.state.lockAlert !== true ? null :
+            { this.state.lockAlert != true ? null :
                 (
                     <Modal show={this.state.lockAlert} onHide={() => this.setState({ lockAlert: false })}>
                         <Modal.Header>
