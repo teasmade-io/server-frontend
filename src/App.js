@@ -245,6 +245,8 @@ class UIHome extends React.Component {
     }
 
     checkNotificationConstraints () {
+        if (!this.state.jug.connected) return 0;
+
         console.log("DISABLED", this.state.notifications.disableTime, this.state.notifications.disableColor);
         console.log("UNDISABLED", !this.state.notifications.disableTime, !this.state.notifications.disableColor);
         console.log("TIME CONSTS", this.state.notifications.minTime, this.state.brew.timeElapsed)
