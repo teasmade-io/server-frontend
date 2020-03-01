@@ -5,6 +5,11 @@ import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import ban from './ban.svg';
 import colormap from 'colormap';
+import axios from 'axios';
+import convert from 'color-convert';
+import floor from 'floor';
+import luminance from 'luminance'
+window.axios = axios;
 
 function App () {
     return (
@@ -22,7 +27,6 @@ function App () {
     );
 }
 
-window.colormap = colormap;
 class ColorPicker extends React.Component {
     constructor () {
         super();
@@ -54,14 +58,14 @@ class ColorPicker extends React.Component {
     }
 
     render () {
-        colormap = colormap({ colormap: [
+        var cmap = colormap({ colormap: [
                            { index: 0, rgb: this.props.startColor },
                            { index: 1, rgb: this.props.endColor }
                        ]
                        , nshades: 6
                        });
 
-        colormap = colormap.map((x, i, a) => [a[i], a[i + 1]]).slice(0,-1);
+        cmap = cmap.map((x, i, a) => [a[i], a[i + 1]]).slice(0,-1);
 
         return (
             <InputGroup className="pb-2 d-flex justify-content-center">
@@ -75,7 +79,7 @@ class ColorPicker extends React.Component {
                     )
                 }
                 {
-                    colormap.map(([c1, c2], ii) => this.button(c1, c2, ii))
+                    cmap.map(([c1, c2], ii) => this.button(c1, c2, ii))
                 }
                 </span>
             </InputGroup>
@@ -102,8 +106,6 @@ class MinuteTimer extends React.Component {
             mins += 1;
             secs -= 60;
         }
-
-        console.log(mins, secs);
 
         if (mins < 0) {
             this.updateTime(0, 0);
@@ -161,9 +163,101 @@ class UIHome extends React.Component {
     constructor () {
         super();
         this.state = {};
-        this.state.temp = 50;
+        this.state.temp = NaN;
         this.state.time = { secs: 0, mins: 10 }
-        this.state.color = "#dba"
+        this.state.tea = { level: null, color: [255,255,255] }
+        this.state.jug = { connected: false }
+        this.state.brew = { started: false, timeElapsed: null }
+        this.state.notifications = { minTimer: null, minColor: null }
+        this.cycleAPI();
+        this.cycleNotifications();
+        // this.cycleTime(true)
+    }
+
+    apiRoot = "http://localhost:8080/api/v1"
+
+    startBrew () {
+        axios.post(`${this.apiRoot}/brew`);
+    }
+
+    cycleTime (time) {
+        if (time === true) {
+            this.setState({ brew: { started: true, timeElapsed: 0 } })
+        } else {
+            this.setState({ brew: { started: true, timeElapsed: this.state.brew.timeElapsed + 0.01 } })
+        }
+        setTimeout(this.cycleTime.bind(this), 10)
+    }
+
+    reloadAPI () {
+        return Promise.all(
+            [ axios.get(`${this.apiRoot}/brew`).then(x => {
+                if (x.status !== 200) return;
+                // this.setState({
+                //     brew: {
+                //         started: x.data,
+                //         ...this.state.brew
+                //     }
+                // })
+              })
+            , axios.get(`${this.apiRoot}/brew/time`).then(x => {
+                if (x.status !== 200) return;
+                this.setState({
+                    brew: {
+                        started: x.data > 0,
+                        timeElapsed: x.data,
+                        ...this.state.brew
+                    }
+                })
+              })
+            , axios.get(`${this.apiRoot}/tea/colour`).then(x => {
+                var data = x.data;
+                data = [data.red, data.blue, data.green];
+                this.setState({
+                    tea: { 
+                        color: data,
+                        colorHex: "#" + convert.rgb.hex(data),
+                        ...this.state.tea
+                    }
+                });
+              })
+            , axios.get(`${this.apiRoot}/tea/level`).then(x => {
+                this.setState({
+                    tea: {
+                        level: x.data,
+                        ...this.state.tea
+                    }
+                })
+              })
+            , axios.get(`${this.apiRoot}/jug/connected`).then(x => this.setState({ jug: { connected: x.data } }))
+            , axios.get(`${this.apiRoot}/steam/temperature`).then(x => this.setState({ temp: x.data }))
+            ]
+        );
+    }
+
+    checkNotificationConstraints () {
+        if (this.state.notifications.timer != null
+            && this.state.timeElapsed > this.state.notifications.minTimer) {
+            return true;
+        }
+
+        if (this.state.notifications.minColor != null
+            && luminance(this.state.tea.color) < luminance(this.state.notifications.minColor)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    cycleNotifications () {
+        var constraintMet = this.checkNotificationConstraints();
+        if (constraintMet) { this.alertUser() }
+        setTimeout(this.cycleNotifications.bind(this), 1000)
+    }
+
+    cycleAPI () {
+        // console.log("Cycling API...");
+        this.reloadAPI().then(setTimeout(this.cycleAPI.bind(this), 1000));
     }
 
     render () {
@@ -178,38 +272,29 @@ class UIHome extends React.Component {
                 <Col>
                     <h3>Notify Me When:</h3>
                     <Form>
-                        {/*/}
-                        <Form.Group as={Row}>
-                            <Form.Label column sm="2">
-                                Preset:
-                            </Form.Label>
-                            <Col sm="10">
-                                <Form.Control as="select" className="text-center">
-                                    <option>&lt;Default&gt;</option>
-                                </Form.Control>
-                            </Col>
-                        </Form.Group>
-                        {/*/}
                         <h5 className="text-left">Timer reaches following time...</h5>
                         <MinuteTimer />
-                        <h5 className="text-left">Tea reaches following color...</h5>
+                        <h5 className="text-left">Tea reaches following darkness...</h5>
                         <ColorPicker startColor={[205,133,63]} endColor={[92,64,51]} />
-                        <Button variant="primary" size="lg">
+                        <Button variant="primary" size="lg" onSubmit={this.startBrew.bind(this)}>
                             Brew a Cup!
                         </Button>
                     </Form>
                 </Col>
                 <Col>
                     <h3>Current Brew Stats:</h3>
-                    <h5 className="text-left">Time Elapsed: {this.state.time.secs}:{this.state.time.mins}</h5>
-                    <h5 className="text-left">Time Remaining: {this.state.time.secs}:{this.state.time.mins}</h5>
-                    <h5 className="text-left">Temperature: {this.state.temp} °C</h5>
-                    <div className="d-flex flex-row">
-                        <h5 className="text-left mr-2 mb-0">Tea Color:</h5>
-                        <div className="rounded flex-grow-1"
-                             style={{ backgroundColor: this.state.color }}>
+                    { this.state.brew.started === false ? <h4>No brew currently active.</h4> :
+                    <>
+                        
+                        <h5 className="text-left">Time Elapsed: {Math.floor(this.state.brew.timeElapsed / 60)}:{(Math.floor(this.state.brew.timeElapsed) % 60).toString().padStart(2, "0")}</h5>
+                        <h5 className="text-left">Temperature: {floor(this.state.temp, -2)} °C</h5>
+                        <div className="d-flex flex-row">
+                            <h5 className="text-left mr-2 mb-0">Tea Color:</h5>
+                            <div className="rounded flex-grow-1"
+                                 style={{ backgroundColor: this.state.tea.colorHex }}>
+                            </div>
                         </div>
-                    </div>
+                    </> }
                 </Col>
             </Row>
         </Container>;
