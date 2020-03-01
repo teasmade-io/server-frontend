@@ -344,7 +344,7 @@ class UIHome extends React.Component {
                                      />
                         <Button variant="primary" size="lg" disabled={!this.state.jug.connected}
                                 onClick={() => {
-                                    if (this.state.jug.connected !== false) {
+                                    if (this.state.jug.connected != false) {
                                         this.startBrew();
                                     }
                                 }}>
@@ -354,8 +354,8 @@ class UIHome extends React.Component {
                 </Col>
                 <Col>
                     <h3>Current Brew Stats:</h3>
-                    { this.state.brew.started !== true ? <h4>No brew currently active.</h4> :
-                      (this.state.jug.connected !== true ? <h4>No jug currently connected.</h4> :
+                    { this.state.brew.started != true ? <h4>No brew currently active.</h4> :
+                      (this.state.jug.connected != true ? <h4>No jug currently connected.</h4> :
                     <>
                         
                         <h5 className="text-left">Time Elapsed: {Math.floor(this.state.brew.timeElapsed / 60)}:{(Math.floor(this.state.brew.timeElapsed) % 60).toString().padStart(2, "0")}</h5>
