@@ -358,7 +358,7 @@ class UIHome extends React.Component {
                       (this.state.jug.connected != true ? <h4>No jug currently connected.</h4> :
                     <>
                         
-                        <h5 className="text-left">Time Elapsed: {Math.floor(this.state.brew.timeElapsed / 60)}:{(Math.floor(this.state.brew.timeElapsed) % 60).toString().padStart(2, "0")}</h5>
+                        <h5 className="text-left">Time Elapsed: {Math.floor(Math.max(this.state.brew.timeElapsed, 0) / 60)}:{(Math.floor(this.state.brew.timeElapsed) % 60).toString().padStart(2, "0")}</h5>
                         <h5 className="text-left">Temperature: {floor(this.state.temp, -2)} °C</h5>
                         <div className="d-flex flex-row">
                             <h5 className="text-left mr-2 mb-0">Tea Color:</h5>
