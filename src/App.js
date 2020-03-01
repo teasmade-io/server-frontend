@@ -31,12 +31,12 @@ class ColorPicker extends React.Component {
     }
 
     setPos (ii) {
-        this.setState({ pos: ii });
-        (this.props.updatePos || (() => {}))(ii);
+        this.setState({ pos: ii }, () => {
+            (this.props.onChange || (() => {}))(this.state);
+        });
     }
 
     button (c1, c2, index, contents = null) {
-        console.log(`linear-gradient(to right, ${c1}, ${c2})`);
         return (
             <Button key={index}
                     variant="outline-secondary"
@@ -83,11 +83,87 @@ class ColorPicker extends React.Component {
     }
 }
 
+class MinuteTimer extends React.Component {
+    constructor () {
+        super();
+        this.state = {};
+        this.state.mins = 3;
+        this.state.secs = 0;
+    }
+
+    updateTime (mins, secs) {
+        mins = parseInt(mins)
+        secs = parseInt(secs)
+
+        if (secs < 0) {
+            mins -= 1;
+            secs += 60;
+        } else if (secs >= 60) {
+            mins += 1;
+            secs -= 60;
+        }
+
+        console.log(mins, secs);
+
+        if (mins < 0) {
+            this.updateTime(0, 0);
+        } else {
+            this.setState({ mins, secs }, () => {
+                (this.props.onChange || (() => {}))(this.state);
+            });
+        }
+    }
+
+    render () {
+        return (
+            <>
+                <InputGroup className="pb-2">
+                    <Form.Control type="number" value={this.state.mins} maximum={5}  minimum={0}
+                                  className="border-0"
+                                  onChange={e => this.updateTime(e.target.value, this.state.secs)}
+                                  />
+                    <InputGroup.Text className="border-0 rounded-0">mins</InputGroup.Text>
+                    <Form.Control type="number" value={this.state.secs} maximum={60} minimum={0}
+                                  className="border-0"
+                                  style={{ width: "3ch" }}
+                                  onChange={e => this.updateTime(this.state.mins, e.target.value)}
+                                  />
+                    <InputGroup.Text className="border-0 rounded-0">secs</InputGroup.Text>
+                </InputGroup>
+                <InputGroup className="pb-2 d-flex justify-content-center">
+                    <Button variant="outline-primary mr-2" size="sm"
+                            onClick={() => this.updateTime(this.state.mins + 1, this.state.secs)}
+                            >
+                        +1m
+                    </Button>
+                    <Button variant="outline-primary mr-2" size="sm"
+                            onClick={() => this.updateTime(this.state.mins - 1, this.state.secs)}
+                            >
+                        -1m
+                    </Button>
+                    <Button variant="outline-primary mr-2" size="sm"
+                            onClick={() => this.updateTime(this.state.mins, this.state.secs + 10)}
+                            >
+                        +10s
+                    </Button>
+                    <Button variant="outline-primary" size="sm"
+                            onClick={() => this.updateTime(this.state.mins, this.state.secs - 10)}
+                            >
+                        -10s
+                    </Button>
+                </InputGroup>
+            </>
+        );
+    }
+}
+
 class UIHome extends React.Component {
     constructor () {
         super();
         this.state = {};
-        this.state.myTitle = "TITLE";
+        this.state.temp = 50;
+        this.state.time = { secs: 0, mins: 10 }
+        this.state.color = "#dba"
     }
 
     render () {
@@ -100,7 +176,7 @@ class UIHome extends React.Component {
             </Navbar>
             <Row>
                 <Col>
-                    <h3>Brew Settings</h3>
+                    <h3>Notify Me When:</h3>
                     <Form>
                         {/*/}
                         <Form.Group as={Row}>
@@ -114,33 +190,26 @@ class UIHome extends React.Component {
                             </Col>
                         </Form.Group>
                         {/*/}
-                        <h5 className="text-left">Brewing Time</h5>
-                        <InputGroup className="pb-2">
-                            <Form.Control type="number" value={0} maximum={5}  minimum={0}
-                                          className="border-0" />
-                            <InputGroup.Text className="border-0 rounded-0">mins</InputGroup.Text>
-                            <Form.Control type="number" value={0} maximum={60} minimum={0}
-                                          className="border-0"
-                                          style={{ width: "3ch" }} />
-                            <InputGroup.Text className="border-0 rounded-0">secs</InputGroup.Text>
-                        </InputGroup>
-                        <InputGroup className="pb-2 d-flex justify-content-center">
-                            <Button variant="outline-primary mr-2" size="sm">
-                                +1m
-                            </Button>
-                            <Button variant="outline-primary" size="sm">
-                                +10s
-                            </Button>
-                        </InputGroup>
-                        <h5 className="text-left">Color Threshold</h5>
-                        <ColorPicker startColor={[68,200,150]} endColor={[40,100,100]} />
+                        <h5 className="text-left">Timer reaches following time...</h5>
+                        <MinuteTimer />
+                        <h5 className="text-left">Tea reaches following color...</h5>
+                        <ColorPicker startColor={[205,133,63]} endColor={[92,64,51]} />
                         <Button variant="primary" size="lg">
-                            Brew a Cuppa
+                            Brew a Cup!
                         </Button>
                     </Form>
                 </Col>
                 <Col>
-                    <h3>Lifetime Statistics</h3>
+                    <h3>Current Brew Stats:</h3>
+                    <h5 className="text-left">Time Elapsed: {this.state.time.secs}:{this.state.time.mins}</h5>
+                    <h5 className="text-left">Time Remaining: {this.state.time.secs}:{this.state.time.mins}</h5>
+                    <h5 className="text-left">Temperature: {this.state.temp} °C</h5>
+                    <div className="d-flex flex-row">
+                        <h5 className="text-left mr-2 mb-0">Tea Color:</h5>
+                        <div className="rounded flex-grow-1"
+                             style={{ backgroundColor: this.state.color }}>
+                        </div>
+                    </div>
                 </Col>
             </Row>
         </Container>;
