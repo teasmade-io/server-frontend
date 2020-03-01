@@ -198,6 +198,7 @@ class UIHome extends React.Component {
     }
 
     reloadAPI () {
+        console.log("CURR JUG CONNECTED", this.state.jug.connected);
         return Promise.all(
             [ /*axios.get(`${this.apiRoot}/brew`).then(x => {
                 if (x.status !== 200) return;
@@ -343,7 +344,7 @@ class UIHome extends React.Component {
                                      />
                         <Button variant="primary" size="lg" disabled={!this.state.jug.connected}
                                 onClick={() => {
-                                    if (this.state.jug.connected === true) {
+                                    if (this.state.jug.connected !== false) {
                                         this.startBrew();
                                     }
                                 }}>
